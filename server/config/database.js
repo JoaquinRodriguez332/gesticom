@@ -4,29 +4,27 @@ import dotenv from "dotenv"
 
 dotenv.config()
 
-// Configuración de la conexión a PostgreSQL (Supabase)
-const dbConfig = {
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
-}
+// Usar la POSTGRES_URL que Vercel configuró automáticamente
+const pool = new Pool({
+  connectionString: process.env.POSTGRES_URL,
+  ssl: {
+    rejectUnauthorized: false,
+  },
+})
 
-// Crear el pool de conexiones
-const pool = new Pool(dbConfig)
-
-// Función para probar la conexión
 export const testConnection = async () => {
   try {
     const client = await pool.connect()
-    console.log("✅ Conexión a Supabase PostgreSQL establecida correctamente")
+    console.log("✅ Conexión a Supabase (via Vercel) establecida correctamente")
+    console.log("🔗 Conectado a:", process.env.POSTGRES_URL?.substring(0, 50) + "...")
     client.release()
     return true
   } catch (error) {
-    console.error("❌ Error al conectar con Supabase:", error.message)
+    console.error("❌ Error al conectar:", error.message)
     return false
   }
 }
 
-// Función para ejecutar consultas
 export const query = async (sql, params = []) => {
   try {
     const result = await pool.query(sql, params)
@@ -39,7 +37,6 @@ export const query = async (sql, params = []) => {
   }
 }
 
-// Función para obtener una sola fila
 export const queryOne = async (sql, params = []) => {
   try {
     const result = await pool.query(sql, params)
