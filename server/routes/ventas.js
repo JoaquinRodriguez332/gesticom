@@ -26,7 +26,7 @@ router.get("/", authenticateToken, async (req, res) => {
           SELECT dv.*, p.nombre as producto_nombre
           FROM detalle_ventas dv
           LEFT JOIN productos p ON dv.producto_id = p.id
-          WHERE dv.venta_id = ?
+          WHERE dv.venta_id = $1
         `,
           [venta.id],
         )
@@ -71,7 +71,7 @@ router.post("/", authenticateToken, async (req, res) => {
     for (const item of items) {
       console.log(`Verificando producto ID: ${item.producto_id}, cantidad: ${item.cantidad}`)
 
-      const productos = await query("SELECT id, nombre, stock FROM productos WHERE id = ?", [item.producto_id])
+      const productos = await query("SELECT id, nombre, stock FROM productos WHERE id = $1", [item.producto_id])
 
       if (productos.length === 0) {
         console.log(`❌ Producto ${item.producto_id} no encontrado`)
@@ -91,14 +91,14 @@ router.post("/", authenticateToken, async (req, res) => {
 
     console.log("✅ Stock verificado correctamente")
 
-    // Crear la venta (sin especificar fecha ya que tiene DEFAULT CURRENT_TIMESTAMP)
+    // Crear la venta
     console.log("💾 Creando venta en base de datos...")
-    const ventaResult = await query("INSERT INTO ventas (usuario_id, total, estado) VALUES (?, ?, 'activa')", [
-      usuario_id,
-      total,
-    ])
+    const ventaResult = await query(
+      "INSERT INTO ventas (usuario_id, total, estado) VALUES ($1, $2, 'activa') RETURNING id",
+      [usuario_id, total],
+    )
 
-    const venta_id = ventaResult.insertId
+    const venta_id = ventaResult[0].id
     console.log(`✅ Venta creada con ID: ${venta_id}`)
 
     // Agregar items de la venta
@@ -108,36 +108,24 @@ router.post("/", authenticateToken, async (req, res) => {
         `Agregando item: Producto ${item.producto_id}, Cantidad: ${item.cantidad}, Precio: ${item.precio_unitario}`,
       )
 
-      await query("INSERT INTO detalle_ventas (venta_id, producto_id, cantidad, precio_unitario) VALUES (?, ?, ?, ?)", [
-        venta_id,
-        item.producto_id,
-        item.cantidad,
-        item.precio_unitario,
-      ])
+      await query(
+        "INSERT INTO detalle_ventas (venta_id, producto_id, cantidad, precio_unitario) VALUES ($1, $2, $3, $4)",
+        [venta_id, item.producto_id, item.cantidad, item.precio_unitario],
+      )
 
       // Actualizar stock
       console.log(`📦 Actualizando stock del producto ${item.producto_id}`)
-      await query("UPDATE productos SET stock = stock - ? WHERE id = ?", [item.cantidad, item.producto_id])
+      await query("UPDATE productos SET stock = stock - $1 WHERE id = $2", [item.cantidad, item.producto_id])
 
       // Registrar movimiento de inventario
       try {
         await query(
-          "INSERT INTO movimientos_inventario (producto_id, tipo, cantidad, usuario, motivo) VALUES (?, 'salida', ?, ?, ?)",
+          "INSERT INTO movimientos_inventario (producto_id, tipo, cantidad, usuario, motivo) VALUES ($1, 'salida', $2, $3, $4)",
           [item.producto_id, item.cantidad, req.user.nombre, `Venta #${venta_id}`],
         )
       } catch (movError) {
         console.log("⚠️ Error al registrar movimiento (continuando):", movError.message)
       }
-    }
-
-    // Registrar actividad
-    try {
-      await query("INSERT INTO actividad_sistema (usuario_id, modulo, accion) VALUES (?, 'ventas', ?)", [
-        usuario_id,
-        `Venta procesada #${venta_id} por $${total}`,
-      ])
-    } catch (actError) {
-      console.log("⚠️ Error al registrar actividad (continuando):", actError.message)
     }
 
     console.log("🎉 Venta procesada exitosamente")
@@ -154,68 +142,6 @@ router.post("/", authenticateToken, async (req, res) => {
       error: error.message,
       stack: process.env.NODE_ENV === "development" ? error.stack : undefined,
     })
-  }
-})
-
-// Anular venta (solo dueños)
-router.put("/:id/anular", authenticateToken, async (req, res) => {
-  try {
-    const { id } = req.params
-    console.log(`🚫 Anulando venta ${id}...`)
-
-    // Verificar que el usuario sea dueño
-    if (req.user.rol !== "dueño") {
-      console.log("❌ Usuario sin permisos para anular ventas")
-      return res.status(403).json({ message: "No tienes permisos para anular ventas" })
-    }
-
-    // Verificar que la venta existe y está activa
-    const ventas = await query("SELECT * FROM ventas WHERE id = ? AND estado = 'activa'", [id])
-
-    if (ventas.length === 0) {
-      console.log("❌ Venta no encontrada o ya anulada")
-      return res.status(404).json({ message: "Venta no encontrada o ya anulada" })
-    }
-
-    const venta = ventas[0]
-
-    // Obtener items de la venta
-    const items = await query("SELECT * FROM detalle_ventas WHERE venta_id = ?", [id])
-    console.log(`📦 Restaurando stock de ${items.length} productos...`)
-
-    // Restaurar stock
-    for (const item of items) {
-      await query("UPDATE productos SET stock = stock + ? WHERE id = ?", [item.cantidad, item.producto_id])
-
-      // Registrar movimiento de inventario
-      try {
-        await query(
-          "INSERT INTO movimientos_inventario (producto_id, tipo, cantidad, usuario, motivo) VALUES (?, 'entrada', ?, ?, ?)",
-          [item.producto_id, item.cantidad, req.user.nombre, `Anulación venta #${id}`],
-        )
-      } catch (movError) {
-        console.log("⚠️ Error al registrar movimiento de anulación:", movError.message)
-      }
-    }
-
-    // Marcar venta como anulada
-    await query("UPDATE ventas SET estado = 'anulada' WHERE id = ?", [id])
-
-    // Registrar actividad
-    try {
-      await query("INSERT INTO actividad_sistema (usuario_id, modulo, accion) VALUES (?, 'ventas', ?)", [
-        req.user.id,
-        `Venta anulada #${id}`,
-      ])
-    } catch (actError) {
-      console.log("⚠️ Error al registrar actividad de anulación:", actError.message)
-    }
-
-    console.log("✅ Venta anulada exitosamente")
-    res.json({ message: "Venta anulada exitosamente" })
-  } catch (error) {
-    console.error("❌ Error al anular venta:", error)
-    res.status(500).json({ message: "Error interno del servidor", error: error.message })
   }
 })
 
