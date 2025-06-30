@@ -16,7 +16,7 @@ interface Usuario {
   nombre: string
   rut: string
   email: string
-  rol: "dueño" | "trabajador"
+  rol: "admin" | "trabajador"
   activo: boolean
 }
 
@@ -29,7 +29,7 @@ interface Props {
 interface FormData {
   nombre: string
   email: string
-  rol: "dueño" | "trabajador"
+  rol: "admin" | "trabajador"
 }
 
 const EditarUsuarioForm: React.FC<Props> = ({ usuario, onUsuarioActualizado, onClose }) => {
@@ -116,7 +116,7 @@ const EditarUsuarioForm: React.FC<Props> = ({ usuario, onUsuarioActualizado, onC
     }
   }
 
-  const canEditRole = currentUser?.rol === "dueño" && currentUser?.id !== usuario.id
+  const canEditRole = currentUser?.rol === "admin" && currentUser?.id !== usuario.id
 
   return (
     <div className="space-y-6">
@@ -158,14 +158,14 @@ const EditarUsuarioForm: React.FC<Props> = ({ usuario, onUsuarioActualizado, onC
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="trabajador">Trabajador</SelectItem>
-              <SelectItem value="dueño">Dueño</SelectItem>
+              <SelectItem value="admin">Admin</SelectItem>
             </SelectContent>
           </Select>
           {!canEditRole && (
             <p className="text-xs text-muted-foreground">
               {currentUser?.id === usuario.id
                 ? "No puedes cambiar tu propio rol"
-                : "Solo los dueños pueden cambiar roles"}
+                : "Solo los administradores pueden cambiar roles"}
             </p>
           )}
         </div>

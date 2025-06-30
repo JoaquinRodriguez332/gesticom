@@ -12,7 +12,7 @@ export default function HomePage() {
     if (!isLoading) {
       if (isAuthenticated) {
         // Si el usuario está autenticado, redirigir según su rol
-        if (usuario?.rol === "dueño") {
+        if (usuario?.rol === "admin") {
           router.push("/dashboard")
         } else {
           router.push("/inventario")

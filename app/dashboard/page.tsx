@@ -1,26 +1,13 @@
 "use client"
 
-import { CardTitle } from "@/components/ui/card"
-import { CardHeader } from "@/components/ui/card"
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
-import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import {
-  Package,
-  ShoppingCart,
-  Clock,
-  Users,
-  BarChart3,
-  Bell,
-  LogOut,
-  Store,
-  Shield,
-  User,
-  TrendingUp,
-} from "lucide-react"
+import DashboardMetrics from "@/components/dashboard-metrics"
+import NotificacionesPanel from "@/components/notificaciones-panel"
+import { Package, ShoppingCart, Clock, Users, BarChart3, LogOut, Store, Shield, User } from "lucide-react"
 
 export default function DashboardPage() {
   const { usuario, isAuthenticated, isLoading, logout, hasRole } = useAuth()
@@ -44,7 +31,7 @@ export default function DashboardPage() {
     return null
   }
 
-  // Módulos disponibles según el rol
+  // Módulos disponibles según el rol - SIN NOTIFICACIONES
   const modulos = [
     {
       id: "inventario",
@@ -52,6 +39,7 @@ export default function DashboardPage() {
       descripcion: "Gestión de productos",
       icono: Package,
       disponible: true,
+      soloOwner: true,
     },
     {
       id: "ventas",
@@ -65,8 +53,7 @@ export default function DashboardPage() {
       titulo: "Horarios",
       descripcion: "Control de asistencia",
       icono: Clock,
-      disponible: false,
-      soloOwner: true,
+      disponible: true,
     },
     {
       id: "usuarios",
@@ -81,57 +68,42 @@ export default function DashboardPage() {
       titulo: "Reportes",
       descripcion: "Análisis y estadísticas",
       icono: BarChart3,
-      disponible: false,
-    },
-    {
-      id: "notificaciones",
-      titulo: "Notificaciones",
-      descripcion: "Alertas del sistema",
-      icono: Bell,
-      disponible: false,
+      disponible: true,
+      soloOwner: true,
     },
   ]
 
   // Filtrar módulos según el rol
   const modulosDisponibles = modulos.filter((modulo) => {
-    if (modulo.soloOwner && !hasRole("dueño")) {
+    if (modulo.soloOwner && !hasRole("admin")) {
       return false
     }
     return true
   })
 
-  const handleModuloClick = (modulo: (typeof modulos)[0]) => {
+  const handleModuloClick = (modulo: any) => {
     if (!modulo.disponible) {
       return
     }
 
-    if (modulo.id === "usuarios") {
-      router.push("/dashboard/usuarios")
-    } else {
-      if (modulo.id === "inventario") {
+    switch (modulo.id) {
+      case "inventario":
         router.push("/dashboard/inventario")
-      }
-    }
-    if (modulo.id === "ventas") {
-      router.push("/dashboard/ventas")
-    }
-    if (modulo.id === "horarios") {
-      router.push("/dashboard/horarios")
-    }
-    if (modulo.id === "reportes") {
-      router.push("/dashboard/reportes")
-    }
-    if (modulo.id === "notificaciones") {
-      router.push("/dashboard/notificaciones")
-    }
-    if (modulo.id === "notificaciones") {
-      router.push("/dashboard/notificaciones")
+        break
+      case "ventas":
+        router.push("/dashboard/ventas")
+        break
+      case "horarios":
+        router.push("/dashboard/horarios")
+        break
+      case "usuarios":
+        router.push("/dashboard/usuarios")
+        break
+      case "reportes":
+        router.push("/dashboard/reportes")
+        break
     }
   }
-
-  // Dividir módulos en dos filas
-  const primeraFila = modulosDisponibles.slice(0, 3)
-  const segundaFila = modulosDisponibles.slice(3, 6)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -146,20 +118,24 @@ export default function DashboardPage() {
               </div>
               <div>
                 <h1 className="text-xl font-bold text-gray-900">GestiCom Dashboard</h1>
+                <p className="text-xs text-gray-500">Sistema de gestión comercial</p>
               </div>
             </div>
 
             {/* Usuario y acciones */}
             <div className="flex items-center space-x-4">
+              {/* Panel de notificaciones */}
+              <NotificacionesPanel />
+
               {/* Info del usuario */}
               <div className="flex items-center space-x-3">
                 <div className="text-right">
                   <p className="text-sm font-medium text-gray-900">{usuario.nombre}</p>
                   <div className="flex items-center justify-end space-x-1">
-                    {usuario.rol === "dueño" ? (
+                    {usuario.rol === "admin" ? (
                       <Badge variant="secondary" className="text-xs">
                         <Shield className="h-3 w-3 mr-1" />
-                        Dueño
+                        Administrador
                       </Badge>
                     ) : (
                       <Badge variant="secondary" className="text-xs">
@@ -171,8 +147,6 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {/* Botones de acción */}
-                
               <Button variant="outline" size="sm" onClick={logout}>
                 <LogOut className="h-4 w-4 mr-2" />
                 Cerrar Sesión
@@ -184,189 +158,136 @@ export default function DashboardPage() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Productos</CardTitle>
-              <Package className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">1,234</div>
-              <p className="text-xs text-muted-foreground">+20.1% desde el mes pasado</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Ventas del Mes</CardTitle>
-              <ShoppingCart className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">$45,231</div>
-              <p className="text-xs text-muted-foreground">+15.3% desde el mes pasado</p>
-            </CardContent>
-          </Card>
-
-          {hasRole("dueño") && (
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Usuarios Activos</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">12</div>
-                <p className="text-xs text-muted-foreground">+2 nuevos este mes</p>
-              </CardContent>
-            </Card>
-          )}
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Crecimiento</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">+12.5%</div>
-              <p className="text-xs text-muted-foreground">Comparado con el año pasado</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Launchpad de Módulos - 2 filas de 3 iconos minimalistas */}
-        <div className="w-full max-w-5xl mx-auto space-y-16">
-          {/* Primera fila */}
-          <div className="grid grid-cols-3 gap-12 justify-items-center">
-            {modulosDisponibles.slice(0, 3).map((modulo) => {
-              const IconoComponente = modulo.icono
-
-              return (
-                <div
-                  key={modulo.id}
-                  className={`
-                    group cursor-pointer transition-all duration-300 transform hover:scale-105
-                    ${modulo.disponible ? "opacity-100" : "opacity-60"}
-                  `}
-                  onClick={() => handleModuloClick(modulo)}
-                >
-                  <div className="text-center">
-                    {/* Icono minimalista - fondo blanco, icono negro */}
-                    <div
-                      className={`
-                        w-32 h-32 rounded-2xl mx-auto mb-6 flex items-center justify-center transition-all duration-300 shadow-lg border-2
-                        ${
-                          modulo.disponible
-                            ? "bg-white border-gray-200 hover:border-gray-300 group-hover:shadow-xl"
-                            : "bg-gray-50 border-gray-200"
-                        }
-                      `}
-                    >
-                      <IconoComponente
-                        className={`h-16 w-16 ${modulo.disponible ? "text-gray-900" : "text-gray-400"}`}
-                      />
-                    </div>
-
-                    {/* Título */}
-                    <h3
-                      className={`
-                        font-semibold text-lg mb-2
-                        ${modulo.disponible ? "text-gray-900" : "text-gray-500"}
-                      `}
-                    >
-                      {modulo.titulo}
-                    </h3>
-
-                    {/* Descripción */}
-                    <p
-                      className={`
-                        text-sm
-                        ${modulo.disponible ? "text-gray-600" : "text-gray-400"}
-                      `}
-                    >
-                      {modulo.descripcion}
-                    </p>
-
-                    {/* Badge para módulos no disponibles */}
-                    {!modulo.disponible && (
-                      <Badge variant="secondary" className="mt-3 text-xs">
-                        Próximamente
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-              )
-            })}
+        <div className="space-y-8">
+          {/* Métricas del Dashboard */}
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Resumen del Sistema</h2>
+            <DashboardMetrics />
           </div>
 
-          {/* Segunda fila */}
-          {modulosDisponibles.length > 3 && (
-            <div className="grid grid-cols-3 gap-12 justify-items-center">
-              {modulosDisponibles.slice(3, 6).map((modulo) => {
-                const IconoComponente = modulo.icono
+          {/* Launchpad de Módulos - Ahora con 5 módulos en lugar de 6 */}
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900 mb-6">Módulos del Sistema</h2>
+            <div className="w-full max-w-4xl mx-auto">
+              {/* Grid centrado para 5 módulos */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 justify-items-center">
+                {/* Primera fila - 3 módulos */}
+                {modulosDisponibles.slice(0, 3).map((modulo) => {
+                  const IconoComponente = modulo.icono
 
-                return (
-                  <div
-                    key={modulo.id}
-                    className={`
-                      group cursor-pointer transition-all duration-300 transform hover:scale-105
-                      ${modulo.disponible ? "opacity-100" : "opacity-60"}
-                    `}
-                    onClick={() => handleModuloClick(modulo)}
-                  >
-                    <div className="text-center">
-                      {/* Icono minimalista - fondo blanco, icono negro */}
-                      <div
-                        className={`
-                          w-32 h-32 rounded-2xl mx-auto mb-6 flex items-center justify-center transition-all duration-300 shadow-lg border-2
-                          ${
-                            modulo.disponible
-                              ? "bg-white border-gray-200 hover:border-gray-300 group-hover:shadow-xl"
-                              : "bg-gray-50 border-gray-200"
-                          }
-                        `}
-                      >
-                        <IconoComponente
-                          className={`h-16 w-16 ${modulo.disponible ? "text-gray-900" : "text-gray-400"}`}
-                        />
+                  return (
+                    <div
+                      key={modulo.id}
+                      className={`
+                        group cursor-pointer transition-all duration-300 transform hover:scale-105
+                        ${modulo.disponible ? "opacity-100" : "opacity-60"}
+                      `}
+                      onClick={() => handleModuloClick(modulo)}
+                    >
+                      <div className="text-center">
+                        <div
+                          className={`
+                            w-28 h-28 rounded-2xl mx-auto mb-4 flex items-center justify-center transition-all duration-300 shadow-lg border-2
+                            ${
+                              modulo.disponible
+                                ? "bg-white border-gray-200 hover:border-gray-300 group-hover:shadow-xl"
+                                : "bg-gray-50 border-gray-200"
+                            }
+                          `}
+                        >
+                          <IconoComponente
+                            className={`h-12 w-12 ${modulo.disponible ? "text-gray-900" : "text-gray-400"}`}
+                          />
+                        </div>
+
+                        <h3
+                          className={`
+                            font-semibold text-base mb-1
+                            ${modulo.disponible ? "text-gray-900" : "text-gray-500"}
+                          `}
+                        >
+                          {modulo.titulo}
+                        </h3>
+
+                        <p
+                          className={`
+                            text-sm
+                            ${modulo.disponible ? "text-gray-600" : "text-gray-400"}
+                          `}
+                        >
+                          {modulo.descripcion}
+                        </p>
                       </div>
-
-                      {/* Título */}
-                      <h3
-                        className={`
-                          font-semibold text-lg mb-2
-                          ${modulo.disponible ? "text-gray-900" : "text-gray-500"}
-                        `}
-                      >
-                        {modulo.titulo}
-                      </h3>
-
-                      {/* Descripción */}
-                      <p
-                        className={`
-                          text-sm
-                          ${modulo.disponible ? "text-gray-600" : "text-gray-400"}
-                        `}
-                      >
-                        {modulo.descripcion}
-                      </p>
-
-                      {/* Badge para módulos no disponibles */}
-                      {!modulo.disponible && (
-                        <Badge variant="secondary" className="mt-3 text-xs">
-                          Próximamente
-                        </Badge>
-                      )}
                     </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
+                  )
+                })}
+              </div>
 
-        {/* Mensaje informativo */}
-        <div className="text-center mt-16 text-gray-500">
-          <p className="text-sm">Haz clic en cualquier módulo para acceder a sus funciones</p>
+              {/* Segunda fila - 2 módulos centrados */}
+              {modulosDisponibles.length > 3 && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8 justify-items-center mt-12 max-w-2xl mx-auto">
+                  {modulosDisponibles.slice(3, 5).map((modulo) => {
+                    const IconoComponente = modulo.icono
+
+                    return (
+                      <div
+                        key={modulo.id}
+                        className={`
+                          group cursor-pointer transition-all duration-300 transform hover:scale-105
+                          ${modulo.disponible ? "opacity-100" : "opacity-60"}
+                        `}
+                        onClick={() => handleModuloClick(modulo)}
+                      >
+                        <div className="text-center">
+                          <div
+                            className={`
+                              w-28 h-28 rounded-2xl mx-auto mb-4 flex items-center justify-center transition-all duration-300 shadow-lg border-2
+                              ${
+                                modulo.disponible
+                                  ? "bg-white border-gray-200 hover:border-gray-300 group-hover:shadow-xl"
+                                  : "bg-gray-50 border-gray-200"
+                              }
+                            `}
+                          >
+                            <IconoComponente
+                              className={`h-12 w-12 ${modulo.disponible ? "text-gray-900" : "text-gray-400"}`}
+                            />
+                          </div>
+
+                          <h3
+                            className={`
+                              font-semibold text-base mb-1
+                              ${modulo.disponible ? "text-gray-900" : "text-gray-500"}
+                            `}
+                          >
+                            {modulo.titulo}
+                          </h3>
+
+                          <p
+                            className={`
+                              text-sm
+                              ${modulo.disponible ? "text-gray-600" : "text-gray-400"}
+                            `}
+                          >
+                            {modulo.descripcion}
+                          </p>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Mensaje informativo */}
+          <div className="text-center mt-12 text-gray-500">
+            <p className="text-sm">Haz clic en cualquier módulo para acceder a sus funciones</p>
+            <p className="text-xs mt-1">
+              Bienvenido, <span className="font-medium">{usuario.nombre}</span> • Rol:{" "}
+              <span className="font-medium capitalize">{usuario.rol}</span>
+            </p>
+          </div>
         </div>
       </main>
     </div>

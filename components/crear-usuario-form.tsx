@@ -22,7 +22,7 @@ interface FormData {
   email: string
   password: string
   confirmPassword: string
-  rol: "dueño" | "trabajador" | ""
+  rol: "admin" | "trabajador" | ""
 }
 
 const CrearUsuarioForm: React.FC<Props> = ({ onUsuarioCreado, onClose }) => {
@@ -123,21 +123,22 @@ const CrearUsuarioForm: React.FC<Props> = ({ onUsuarioCreado, onClose }) => {
 
     setIsLoading(true)
 
-    try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api"}/usuarios`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          nombre: form.nombre.trim(),
-          rut: form.rut.trim(),
-          email: form.email.trim(),
-          password: form.password,
-          rol: form.rol,
-        }),
-      })
+  try {
+  const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api"}/usuarios`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      nombre: form.nombre.trim(),
+      rut: formatRUT(form.rut.trim()),
+      email: form.email.trim(),
+      password: form.password,
+      rol: form.rol,
+    }),
+  })
+
 
       if (!response.ok) {
         const errorData = await response.json()
@@ -215,7 +216,7 @@ const CrearUsuarioForm: React.FC<Props> = ({ onUsuarioCreado, onClose }) => {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="trabajador">Trabajador</SelectItem>
-              <SelectItem value="dueño">Dueño</SelectItem>
+              <SelectItem value="admin">Admin</SelectItem>
             </SelectContent>
           </Select>
         </div>

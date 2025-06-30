@@ -15,7 +15,7 @@ export default function UsuariosPage() {
     if (!isLoading && !isAuthenticated) {
       router.push("/login")
     }
-    if (!isLoading && isAuthenticated && !hasRole("dueño")) {
+    if (!isLoading && isAuthenticated && !hasRole("admin")) {
       router.push("/dashboard")
     }
   }, [isAuthenticated, isLoading, hasRole, router])
@@ -28,7 +28,7 @@ export default function UsuariosPage() {
     )
   }
 
-  if (!isAuthenticated || !hasRole("dueño")) {
+  if (!isAuthenticated || !hasRole("admin")) {
     return null
   }
 

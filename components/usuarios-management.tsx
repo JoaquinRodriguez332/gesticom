@@ -42,7 +42,7 @@ interface Usuario {
   nombre: string
   rut: string
   email: string
-  rol: "dueño" | "trabajador"
+  rol: "admin" | "trabajador"
   activo: boolean
   fecha_creacion: string
   ultimo_acceso: string | null
@@ -180,10 +180,10 @@ const UsuariosManagement: React.FC = () => {
   }
 
   const getRolBadge = (rol: string) => {
-    return rol === "dueño" ? (
+    return rol === "admin" ? (
       <Badge variant="default" className="bg-purple-100 text-purple-800">
         <Shield className="h-3 w-3 mr-1" />
-        Dueño
+        Admin
       </Badge>
     ) : (
       <Badge variant="secondary">
@@ -214,7 +214,7 @@ const UsuariosManagement: React.FC = () => {
     })
   }
 
-  if (!hasRole("dueño")) {
+  if (!hasRole("admin")) {
     return (
       <Card className="w-full">
         <CardContent className="p-6">
@@ -261,7 +261,7 @@ const UsuariosManagement: React.FC = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos los roles</SelectItem>
-                <SelectItem value="dueño">Dueño</SelectItem>
+                <SelectItem value="admin">administrador</SelectItem>
                 <SelectItem value="trabajador">Trabajador</SelectItem>
               </SelectContent>
             </Select>

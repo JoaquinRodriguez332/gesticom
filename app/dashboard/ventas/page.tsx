@@ -1,14 +1,18 @@
 "use client"
 
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+
+import { Badge } from "@/components/ui/badge"
+
+import { Input } from "@/components/ui/input"
+
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useColacionStatus } from "@/hooks/useColacionStatusº"
+import { BloqueoColacion } from "@/components/bloqueo-colacion"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
-import { ScrollArea } from "@/components/ui/scroll-area"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   ArrowLeft,
   Search,
@@ -20,7 +24,9 @@ import {
   Package,
   Scan,
   History,
-  X,
+  Printer,
+  CheckCircle,
+  Receipt,
 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -52,11 +58,20 @@ interface Venta {
   }[]
 }
 
+const formatearPrecio = (precio: number) => {
+  return new Intl.NumberFormat("es-CL", {
+    style: "currency",
+    currency: "CLP",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(precio)
+}
+
 export default function VentasPage() {
   const { usuario, isAuthenticated, isLoading, hasRole } = useAuth()
   const router = useRouter()
+  const { enColacion, horaInicio } = useColacionStatus()
 
-  // Estados principales
   const [productos, setProductos] = useState<Producto[]>([])
   const [carrito, setCarrito] = useState<ItemCarrito[]>([])
   const [busqueda, setBusqueda] = useState("")
@@ -64,21 +79,37 @@ export default function VentasPage() {
   const [ventas, setVentas] = useState<Venta[]>([])
   const [vistaActual, setVistaActual] = useState<"venta" | "historial">("venta")
   const [cargando, setCargando] = useState(false)
+  const [ventaCompletada, setVentaCompletada] = useState<any>(null)
+  const [mostrarBoleta, setMostrarBoleta] = useState(false)
 
-  // Verificar autenticación
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       router.push("/login")
     }
   }, [isAuthenticated, isLoading, router])
 
-  // Cargar productos
   useEffect(() => {
     if (isAuthenticated) {
       cargarProductos()
       cargarVentas()
     }
   }, [isAuthenticated])
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      </div>
+    )
+  }
+
+  if (!isAuthenticated || !usuario) {
+    return null
+  }
+
+  if (enColacion && horaInicio) {
+    return <BloqueoColacion horaInicio={horaInicio} />
+  }
 
   const cargarProductos = async () => {
     try {
@@ -95,12 +126,13 @@ export default function VentasPage() {
 
   const cargarVentas = async () => {
     try {
-      const token = localStorage.getItem("token")
+      const token = localStorage.getItem("auth_token")
       const response = await fetch("http://localhost:3001/api/ventas", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       })
+
       if (response.ok) {
         const data = await response.json()
         setVentas(data)
@@ -110,7 +142,6 @@ export default function VentasPage() {
     }
   }
 
-  // Buscar producto por código de barras
   const buscarPorCodigo = async () => {
     if (!codigoBarras.trim()) return
 
@@ -123,12 +154,10 @@ export default function VentasPage() {
     }
   }
 
-  // Filtrar productos por búsqueda
   const productosFiltrados = productos.filter(
     (producto) => producto.nombre.toLowerCase().includes(busqueda.toLowerCase()) || producto.codigo.includes(busqueda),
   )
 
-  // Agregar producto al carrito
   const agregarAlCarrito = (producto: Producto) => {
     if (producto.stock <= 0) {
       toast.error("Producto sin stock")
@@ -154,7 +183,6 @@ export default function VentasPage() {
     }
   }
 
-  // Actualizar cantidad en carrito
   const actualizarCantidad = (productoId: number, nuevaCantidad: number) => {
     if (nuevaCantidad <= 0) {
       eliminarDelCarrito(productoId)
@@ -180,17 +208,14 @@ export default function VentasPage() {
     )
   }
 
-  // Eliminar del carrito
   const eliminarDelCarrito = (productoId: number) => {
     setCarrito(carrito.filter((item) => item.producto.id !== productoId))
   }
 
-  // Calcular total
   const calcularTotal = () => {
     return carrito.reduce((total, item) => total + item.subtotal, 0)
   }
 
-  // Procesar venta
   const procesarVenta = async () => {
     if (carrito.length === 0) {
       toast.error("El carrito está vacío")
@@ -199,7 +224,7 @@ export default function VentasPage() {
 
     setCargando(true)
     try {
-      const token = localStorage.getItem("token")
+      const token = localStorage.getItem("auth_token")
       const ventaData = {
         items: carrito.map((item) => ({
           producto_id: item.producto.id,
@@ -219,10 +244,21 @@ export default function VentasPage() {
       })
 
       if (response.ok) {
-        toast.success("Venta procesada exitosamente")
+        const result = await response.json()
+
+        setVentaCompletada({
+          id: result.venta_id,
+          total: result.total,
+          items: carrito,
+          fecha: new Date(),
+          vendedor: usuario?.nombre,
+        })
+
+        toast.success("¡Venta procesada exitosamente!")
         setCarrito([])
-        cargarProductos() // Actualizar stock
-        cargarVentas() // Actualizar historial
+        cargarProductos()
+        cargarVentas()
+        setMostrarBoleta(true)
       } else {
         const error = await response.json()
         toast.error(error.message || "Error al procesar la venta")
@@ -235,15 +271,75 @@ export default function VentasPage() {
     }
   }
 
-  // Anular venta (solo dueños)
+  const imprimirBoleta = () => {
+    if (!ventaCompletada) return
+
+    const ventana = window.open("", "_blank")
+    if (!ventana) return
+
+    const contenidoBoleta = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Boleta de Venta #${ventaCompletada.id}</title>
+        <style>
+          body { font-family: 'Courier New', monospace; width: 300px; margin: 0; padding: 20px; }
+          .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 15px; }
+          .item { display: flex; justify-content: space-between; margin: 5px 0; }
+          .total { border-top: 2px solid #000; padding-top: 10px; margin-top: 15px; font-weight: bold; }
+          .footer { text-align: center; margin-top: 20px; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h2>GESTICOM</h2>
+          <p>Boleta de Venta</p>
+          <p>#${ventaCompletada.id}</p>
+          <p>${ventaCompletada.fecha.toLocaleString("es-CL")}</p>
+          <p>Vendedor: ${ventaCompletada.vendedor}</p>
+        </div>
+        
+        <div class="items">
+          ${ventaCompletada.items
+            .map(
+              (item) => `
+            <div class="item">
+              <span>${item.cantidad}x ${item.producto.nombre}</span>
+              <span>${formatearPrecio(item.subtotal)}</span>
+            </div>
+          `,
+            )
+            .join("")}
+        </div>
+        
+        <div class="total">
+          <div class="item">
+            <span>TOTAL:</span>
+            <span>${formatearPrecio(ventaCompletada.total)}</span>
+          </div>
+        </div>
+        
+        <div class="footer">
+          <p>¡Gracias por su compra!</p>
+          <p>Conserve esta boleta</p>
+        </div>
+      </body>
+      </html>
+    `
+
+    ventana.document.write(contenidoBoleta)
+    ventana.document.close()
+    ventana.print()
+  }
+
   const anularVenta = async (ventaId: number) => {
-    if (!hasRole("dueño")) {
+    if (!hasRole("admin")) {
       toast.error("No tienes permisos para anular ventas")
       return
     }
 
     try {
-      const token = localStorage.getItem("token")
+      const token = localStorage.getItem("auth_token")
       const response = await fetch(`http://localhost:3001/api/ventas/${ventaId}/anular`, {
         method: "PUT",
         headers: {
@@ -254,7 +350,7 @@ export default function VentasPage() {
       if (response.ok) {
         toast.success("Venta anulada exitosamente")
         cargarVentas()
-        cargarProductos() // Actualizar stock
+        cargarProductos()
       } else {
         toast.error("Error al anular la venta")
       }
@@ -264,21 +360,8 @@ export default function VentasPage() {
     }
   }
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-      </div>
-    )
-  }
-
-  if (!isAuthenticated || !usuario) {
-    return null
-  }
-
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
@@ -288,8 +371,8 @@ export default function VentasPage() {
                 Dashboard
               </Button>
               <div className="flex items-center space-x-2">
-                <ShoppingCart className="h-6 w-6 text-primary" />
-                <h1 className="text-xl font-semibold">Módulo de Ventas</h1>
+                <ShoppingCart className="h-5 w-5 text-gray-700" />
+                <h1 className="text-lg font-semibold text-gray-900">Módulo de Ventas</h1>
               </div>
             </div>
 
@@ -318,13 +401,11 @@ export default function VentasPage() {
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         {vistaActual === "venta" ? (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Panel de búsqueda y productos */}
             <div className="lg:col-span-2 space-y-6">
-              {/* Búsqueda por código de barras */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <Scan className="h-5 w-5 mr-2" />
+              <Card className="shadow-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center text-base font-medium">
+                    <Scan className="h-4 w-4 mr-2" />
                     Escáner de Código de Barras
                   </CardTitle>
                 </CardHeader>
@@ -335,20 +416,20 @@ export default function VentasPage() {
                       value={codigoBarras}
                       onChange={(e) => setCodigoBarras(e.target.value)}
                       onKeyPress={(e) => e.key === "Enter" && buscarPorCodigo()}
+                      className="h-9"
                     />
-                    <Button onClick={buscarPorCodigo}>
+                    <Button onClick={buscarPorCodigo} size="sm">
                       <Search className="h-4 w-4" />
                     </Button>
                   </div>
                 </CardContent>
               </Card>
 
-              {/* Búsqueda de productos */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center">
-                    <Package className="h-5 w-5 mr-2" />
-                    Buscar Productos
+              <Card className="shadow-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center text-base font-medium">
+                    <Package className="h-4 w-4 mr-2" />
+                    Catálogo de Productos
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -356,66 +437,77 @@ export default function VentasPage() {
                     placeholder="Buscar por nombre o código..."
                     value={busqueda}
                     onChange={(e) => setBusqueda(e.target.value)}
-                    className="mb-4"
+                    className="mb-4 h-9"
                   />
 
-                  <ScrollArea className="h-96">
+                  <div className="h-96 overflow-y-auto">
                     <div className="space-y-2">
                       {productosFiltrados.map((producto) => (
                         <div
                           key={producto.id}
-                          className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 cursor-pointer"
+                          className="flex items-center justify-between p-3 border rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
                           onClick={() => agregarAlCarrito(producto)}
                         >
                           <div className="flex-1">
-                            <h3 className="font-medium">{producto.nombre}</h3>
-                            <p className="text-sm text-gray-500">Código: {producto.codigo}</p>
+                            <h3 className="font-medium text-sm">{producto.nombre}</h3>
+                            <p className="text-xs text-gray-500 font-mono">Código: {producto.codigo}</p>
                             <div className="flex items-center space-x-2 mt-1">
-                              <span className="text-lg font-bold text-green-600">${typeof producto.precio === "number" ? producto.precio.toFixed(2) : Number(producto.precio || 0).toFixed(2)}
-</span>
-                              <Badge variant={producto.stock > 0 ? "secondary" : "destructive"}>
+                              <span className="text-base font-semibold text-gray-900">
+                                {formatearPrecio(producto.precio)}
+                              </span>
+                              <Badge
+                                variant={
+                                  producto.stock > 10 ? "default" : producto.stock > 0 ? "secondary" : "destructive"
+                                }
+                                className="text-xs"
+                              >
                                 Stock: {producto.stock}
                               </Badge>
                             </div>
                           </div>
-                          <Button size="sm" disabled={producto.stock <= 0}>
+                          <Button size="sm" disabled={producto.stock <= 0} className="ml-2">
                             <Plus className="h-4 w-4" />
                           </Button>
                         </div>
                       ))}
                     </div>
-                  </ScrollArea>
+                  </div>
                 </CardContent>
               </Card>
             </div>
 
-            {/* Carrito de compras */}
             <div className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
+              <Card className="shadow-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center justify-between text-base font-medium">
                     <span className="flex items-center">
-                      <ShoppingCart className="h-5 w-5 mr-2" />
-                      Carrito ({carrito.length})
+                      <ShoppingCart className="h-4 w-4 mr-2" />
+                      Carrito de Compras
                     </span>
-                    {carrito.length > 0 && (
-                      <Button variant="ghost" size="sm" onClick={() => setCarrito([])}>
-                        <X className="h-4 w-4" />
-                      </Button>
-                    )}
+                    <Badge variant="secondary" className="text-xs">
+                      {carrito.length} items
+                    </Badge>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   {carrito.length === 0 ? (
-                    <p className="text-center text-gray-500 py-8">El carrito está vacío</p>
+                    <div className="text-center py-8">
+                      <ShoppingCart className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                      <p className="text-sm text-gray-500">El carrito está vacío</p>
+                    </div>
                   ) : (
-                    <ScrollArea className="h-64">
+                    <div className="h-64 overflow-y-auto">
                       <div className="space-y-3">
                         {carrito.map((item) => (
-                          <div key={item.producto.id} className="border rounded-lg p-3">
+                          <div key={item.producto.id} className="border rounded-lg p-3 bg-white">
                             <div className="flex justify-between items-start mb-2">
-                              <h4 className="font-medium text-sm">{item.producto.nombre}</h4>
-                              <Button variant="ghost" size="sm" onClick={() => eliminarDelCarrito(item.producto.id)}>
+                              <h4 className="font-medium text-sm flex-1 mr-2">{item.producto.nombre}</h4>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => eliminarDelCarrito(item.producto.id)}
+                                className="h-6 w-6 p-0 text-gray-400 hover:text-red-500"
+                              >
                                 <Trash2 className="h-3 w-3" />
                               </Button>
                             </div>
@@ -426,37 +518,37 @@ export default function VentasPage() {
                                   variant="outline"
                                   size="sm"
                                   onClick={() => actualizarCantidad(item.producto.id, item.cantidad - 1)}
+                                  className="h-7 w-7 p-0"
                                 >
                                   <Minus className="h-3 w-3" />
                                 </Button>
-                                <span className="w-8 text-center">{item.cantidad}</span>
+                                <span className="text-sm font-medium w-6 text-center">{item.cantidad}</span>
                                 <Button
                                   variant="outline"
                                   size="sm"
                                   onClick={() => actualizarCantidad(item.producto.id, item.cantidad + 1)}
+                                  className="h-7 w-7 p-0"
                                 >
                                   <Plus className="h-3 w-3" />
                                 </Button>
                               </div>
-                              <span className="font-bold">
-  ${item.subtotal ? Number(item.subtotal).toFixed(2) : "0.00"}
-</span>
+                              <span className="font-semibold text-sm">{formatearPrecio(item.subtotal)}</span>
                             </div>
                           </div>
                         ))}
                       </div>
-                    </ScrollArea>
+                    </div>
                   )}
 
                   {carrito.length > 0 && (
                     <>
-                      <Separator className="my-4" />
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-lg font-bold">
-                          <span>Total:</span>
-                          <span>${Number(calcularTotal() || 0).toFixed(2)}</span>
+                      <div className="my-4 border-t" />
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center text-lg font-bold bg-gray-50 p-3 rounded-lg">
+                          <span>TOTAL:</span>
+                          <span>{formatearPrecio(calcularTotal())}</span>
                         </div>
-                        <Button className="w-full" onClick={procesarVenta} disabled={cargando}>
+                        <Button className="w-full h-10" onClick={procesarVenta} disabled={cargando}>
                           <DollarSign className="h-4 w-4 mr-2" />
                           {cargando ? "Procesando..." : "Procesar Venta"}
                         </Button>
@@ -468,42 +560,43 @@ export default function VentasPage() {
             </div>
           </div>
         ) : (
-          /* Historial de ventas */
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <History className="h-5 w-5 mr-2" />
+          <Card className="shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center text-base font-medium">
+                <History className="h-4 w-4 mr-2" />
                 Historial de Ventas
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <ScrollArea className="h-96">
+              <div className="h-96 overflow-y-auto">
                 <div className="space-y-4">
                   {ventas.map((venta) => (
-                    <div key={venta.id} className="border rounded-lg p-4">
-                      <div className="flex justify-between items-start mb-2">
+                    <div key={venta.id} className="border rounded-lg p-4 bg-white">
+                      <div className="flex justify-between items-start mb-3">
                         <div>
                           <h3 className="font-medium">Venta #{venta.id}</h3>
-                          <p className="text-sm text-gray-500">{new Date(venta.fecha).toLocaleString()}</p>
+                          <p className="text-xs text-gray-500">{new Date(venta.fecha).toLocaleString("es-CL")}</p>
                         </div>
                         <div className="text-right">
-                          <p className="text-lg font-bold">${venta.total.toFixed(2)}</p>
-                          <Badge variant={venta.estado === "activa" ? "default" : "destructive"}>{venta.estado}</Badge>
+                          <p className="font-bold">{formatearPrecio(venta.total)}</p>
+                          <Badge variant={venta.estado === "activa" ? "default" : "destructive"} className="text-xs">
+                            {venta.estado}
+                          </Badge>
                         </div>
                       </div>
 
-                      <div className="space-y-1 mb-3">
+                      <div className="space-y-1 mb-3 text-sm">
                         {venta.items?.map((item, index) => (
-                          <div key={index} className="text-sm flex justify-between">
+                          <div key={index} className="flex justify-between">
                             <span>
                               {item.cantidad}x {item.producto_nombre}
                             </span>
-                            <span>${(item.cantidad * item.precio_unitario).toFixed(2)}</span>
+                            <span>{formatearPrecio(item.cantidad * item.precio_unitario)}</span>
                           </div>
                         ))}
                       </div>
 
-                      {hasRole("dueño") && venta.estado === "activa" && (
+                      {hasRole("admin") && venta.estado === "activa" && (
                         <Button variant="destructive" size="sm" onClick={() => anularVenta(venta.id)}>
                           Anular Venta
                         </Button>
@@ -511,11 +604,45 @@ export default function VentasPage() {
                     </div>
                   ))}
                 </div>
-              </ScrollArea>
+              </div>
             </CardContent>
           </Card>
         )}
       </main>
+
+      {/* Modal de boleta - usando DialogContent correcto */}
+      <Dialog open={mostrarBoleta} onOpenChange={setMostrarBoleta}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center text-green-700">
+              <CheckCircle className="h-5 w-5 mr-2" />
+              Venta Completada
+            </DialogTitle>
+          </DialogHeader>
+
+          {ventaCompletada && (
+            <div className="space-y-4">
+              <div className="text-center p-4 bg-green-50 rounded-lg border border-green-200">
+                <h3 className="text-lg font-bold text-green-800 mb-1">Venta #{ventaCompletada.id}</h3>
+                <p className="text-2xl font-bold text-green-700">{formatearPrecio(ventaCompletada.total)}</p>
+                <p className="text-xs text-gray-600 mt-1">{ventaCompletada.fecha.toLocaleString("es-CL")}</p>
+              </div>
+
+              <div className="space-y-2">
+                <Button onClick={imprimirBoleta} className="w-full" size="sm">
+                  <Printer className="h-4 w-4 mr-2" />
+                  Imprimir Boleta
+                </Button>
+
+                <Button onClick={() => setMostrarBoleta(false)} variant="outline" className="w-full" size="sm">
+                  <Receipt className="h-4 w-4 mr-2" />
+                  Continuar Vendiendo
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

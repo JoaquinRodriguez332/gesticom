@@ -1,34 +1,42 @@
-import pkg from "pg"
-const { Pool } = pkg
+import mysql from "mysql2/promise"
 import dotenv from "dotenv"
 
 dotenv.config()
 
-// Usar la POSTGRES_URL que Vercel configuró automáticamente
-const pool = new Pool({
-  connectionString: process.env.POSTGRES_URL,
-  ssl: {
-    rejectUnauthorized: false,
-  },
-})
+// Configuración de la conexión a MySQL (corregida para MySQL2)
+const dbConfig = {
+  host: process.env.DB_HOST || "localhost",
+  port: process.env.DB_PORT || 3306,
+  user: process.env.DB_USER || "root",
+  password: process.env.DB_PASSWORD || "",
+  database: process.env.DB_NAME || "gestioncom_inventario",
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0,
+  // Removidas las opciones obsoletas que causaban warnings
+}
 
+// Crear el pool de conexiones
+const pool = mysql.createPool(dbConfig)
+
+// Función para probar la conexión
 export const testConnection = async () => {
   try {
-    const client = await pool.connect()
-    console.log("✅ Conexión a Supabase (via Vercel) establecida correctamente")
-    console.log("🔗 Conectado a:", process.env.POSTGRES_URL?.substring(0, 50) + "...")
-    client.release()
+    const connection = await pool.getConnection()
+    console.log("✅ Conexión a MySQL establecida correctamente")
+    connection.release()
     return true
   } catch (error) {
-    console.error("❌ Error al conectar:", error.message)
+    console.error("❌ Error al conectar con MySQL:", error.message)
     return false
   }
 }
 
+// Función para ejecutar consultas
 export const query = async (sql, params = []) => {
   try {
-    const result = await pool.query(sql, params)
-    return result.rows
+    const [results] = await pool.execute(sql, params)
+    return results
   } catch (error) {
     console.error("Error en consulta SQL:", error.message)
     console.error("SQL:", sql)
@@ -37,10 +45,11 @@ export const query = async (sql, params = []) => {
   }
 }
 
+// Función para obtener una sola fila
 export const queryOne = async (sql, params = []) => {
   try {
-    const result = await pool.query(sql, params)
-    return result.rows[0] || null
+    const [results] = await pool.execute(sql, params)
+    return results[0] || null
   } catch (error) {
     console.error("Error en consulta SQL:", error.message)
     throw error

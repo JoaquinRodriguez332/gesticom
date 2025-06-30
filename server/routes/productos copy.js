@@ -1,10 +1,9 @@
 import express from "express"
 import { query, queryOne } from "../config/database.js"
-import { verificarStockBajo } from "../middleware/notificaciones-automaticas.js"
 
 const router = express.Router()
 
-// GET all productos
+// GET - Obtener todos los productos
 router.get("/", async (req, res) => {
   try {
     console.log("📦 Obteniendo productos...")
@@ -58,7 +57,7 @@ router.get("/", async (req, res) => {
   }
 })
 
-// GET a single producto by id
+// GET - Obtener un producto por ID
 router.get("/:id", async (req, res) => {
   try {
     const { id } = req.params
@@ -139,7 +138,7 @@ router.get("/buscar/:termino", async (req, res) => {
   }
 })
 
-// POST a new producto
+// POST - Crear un nuevo producto
 router.post("/", async (req, res) => {
   try {
     const { codigo, nombre, descripcion, precio, stock, categoria, proveedor } = req.body
@@ -186,10 +185,6 @@ router.post("/", async (req, res) => {
     )
 
     console.log(`✅ Producto creado: ${newProduct.nombre} (ID: ${newProduct.id})`)
-
-    // 🆕 VERIFICAR STOCK BAJO AL CREAR PRODUCTO
-    await verificarStockBajo(newProduct.id)
-
     res.status(201).json(newProduct)
   } catch (error) {
     console.error("❌ Error al crear producto:", error)
@@ -201,7 +196,7 @@ router.post("/", async (req, res) => {
   }
 })
 
-// PUT update a producto
+// PUT - Actualizar un producto
 router.put("/:id", async (req, res) => {
   try {
     const { id } = req.params
@@ -247,10 +242,6 @@ router.put("/:id", async (req, res) => {
     )
 
     console.log(`✅ Producto actualizado: ${updatedProduct.nombre}`)
-
-    // 🆕 VERIFICAR STOCK BAJO AL ACTUALIZAR PRODUCTO
-    await verificarStockBajo(id)
-
     res.json(updatedProduct)
   } catch (error) {
     console.error("❌ Error al actualizar producto:", error)
@@ -258,7 +249,7 @@ router.put("/:id", async (req, res) => {
   }
 })
 
-// DELETE a producto
+// DELETE - Eliminar un producto
 router.delete("/:id", async (req, res) => {
   try {
     const { id } = req.params

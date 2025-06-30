@@ -20,7 +20,7 @@ const logActivity = async (userId, action, description, ipAddress) => {
 }
 
 // GET /api/usuarios - Obtener todos los usuarios (solo dueños)
-router.get("/", authenticateToken, requireRole("dueño"), async (req, res) => {
+router.get("/", authenticateToken, requireRole("admin"), async (req, res) => {
   try {
     const { search, rol, activo } = req.query
 
@@ -66,7 +66,7 @@ router.get("/:id", authenticateToken, async (req, res) => {
     const { id } = req.params
 
     // Solo dueños pueden ver otros usuarios, trabajadores solo su propio perfil
-    if (req.user.rol !== "dueño" && req.user.id !== Number.parseInt(id)) {
+    if (req.user.rol !== "admin" && req.user.id !== Number.parseInt(id)) {
       return res.status(403).json({ error: "No tienes permisos para ver este usuario" })
     }
 
@@ -92,7 +92,7 @@ router.get("/:id", authenticateToken, async (req, res) => {
 })
 
 // POST /api/usuarios - Crear nuevo usuario (solo dueños)
-router.post("/", authenticateToken, requireRole("dueño"), async (req, res) => {
+router.post("/", authenticateToken, requireRole("admin"), async (req, res) => {
   try {
     const { nombre, rut, email, password, rol } = req.body
 
@@ -113,7 +113,7 @@ router.post("/", authenticateToken, requireRole("dueño"), async (req, res) => {
       })
     }
 
-    if (!["dueño", "trabajador"].includes(rol)) {
+    if (!["admin", "trabajador"].includes(rol)) {
       return res.status(400).json({ error: "Rol inválido" })
     }
 
@@ -160,7 +160,7 @@ router.put("/:id", authenticateToken, async (req, res) => {
     const { nombre, email, rol } = req.body
 
     // Solo dueños pueden editar otros usuarios, trabajadores solo su propio perfil
-    if (req.user.rol !== "dueño" && req.user.id !== Number.parseInt(id)) {
+    if (req.user.rol !== "admin" && req.user.id !== Number.parseInt(id)) {
       return res.status(403).json({ error: "No tienes permisos para editar este usuario" })
     }
 
@@ -191,7 +191,7 @@ router.put("/:id", authenticateToken, async (req, res) => {
     const updateFields = ["nombre = ?", "correo = ?"]
     const updateValues = [nombre, email]
 
-    if (rol && req.user.rol === "dueño") {
+    if (rol && req.user.rol === "admin") {
       updateFields.push("rol = ?")
       updateValues.push(rol)
     }
@@ -227,7 +227,7 @@ router.put("/:id", authenticateToken, async (req, res) => {
 })
 
 // PUT /api/usuarios/:id/toggle-status - Activar/Desactivar usuario (solo dueños)
-router.put("/:id/toggle-status", authenticateToken, requireRole("dueño"), async (req, res) => {
+router.put("/:id/toggle-status", authenticateToken, requireRole("admin"), async (req, res) => {
   try {
     const { id } = req.params
 
@@ -261,7 +261,7 @@ router.put("/:id/toggle-status", authenticateToken, requireRole("dueño"), async
 })
 
 // DELETE /api/usuarios/:id - Eliminar usuario (solo dueños)
-router.delete("/:id", authenticateToken, requireRole("dueño"), async (req, res) => {
+router.delete("/:id", authenticateToken, requireRole("admin"), async (req, res) => {
   try {
     const { id } = req.params
 
