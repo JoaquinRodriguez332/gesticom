@@ -113,7 +113,7 @@ export default function VentasPage() {
 
   const cargarProductos = async () => {
     try {
-      const response = await fetch("http://localhost:3001/api/productos")
+      const response = await fetch("https://gesticom-production.up.railway.app/api/productos")
       if (response.ok) {
         const data = await response.json()
         setProductos(data)
@@ -127,7 +127,7 @@ export default function VentasPage() {
   const cargarVentas = async () => {
     try {
       const token = localStorage.getItem("auth_token")
-      const response = await fetch("http://localhost:3001/api/ventas", {
+      const response = await fetch("https://gesticom-production.up.railway.app/api/ventas", {
         headers: {
           Authorization: `Bearer ${token}`,
         },
