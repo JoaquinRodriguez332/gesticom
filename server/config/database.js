@@ -5,16 +5,16 @@ dotenv.config()
 
 // Configuración de la conexión a MySQL (corregida para MySQL2)
 const dbConfig = {
-  host: process.env.DB_HOST || "localhost",
-  port: process.env.DB_PORT || 3306,
-  user: process.env.DB_USER || "root",
-  password: process.env.DB_PASSWORD || "",
-  database: process.env.DB_NAME || "gestioncom_inventario",
+  host: "caboose.proxy.rlwy.net",
+  port: 59667,
+  user: "root",
+  password: "JoVytIKfLxShYhkBJJoBWnQdUNviwctF",
+  database: "railway",
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
-  // Removidas las opciones obsoletas que causaban warnings
 }
+
 
 // Crear el pool de conexiones
 const pool = mysql.createPool(dbConfig)
