@@ -234,7 +234,7 @@ export default function VentasPage() {
         total: calcularTotal(),
       }
 
-      const response = await fetch("http://localhost:3001/api/ventas", {
+      const response = await fetch("https://gesticom-production.up.railway.app/api/ventas", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -340,7 +340,7 @@ export default function VentasPage() {
 
     try {
       const token = localStorage.getItem("auth_token")
-      const response = await fetch(`http://localhost:3001/api/ventas/${ventaId}/anular`, {
+      const response =await fetch("https://gesticom-production.up.railway.app/api/ventas/${ventaId}/anular", {
         method: "PUT",
         headers: {
           Authorization: `Bearer ${token}`,
