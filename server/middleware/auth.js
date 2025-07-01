@@ -1,5 +1,5 @@
 import jwt from "jsonwebtoken"
-import bcrypt from "bcrypt"
+import bcrypt from "bcryptjs"
 import { queryOne } from "../config/database.js"
 
 const JWT_SECRET = process.env.JWT_SECRET || "tu_clave_secreta_muy_segura"
