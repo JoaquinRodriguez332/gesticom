@@ -176,7 +176,7 @@ export default function VentasPage() {
       const nuevoItem: ItemCarrito = {
         producto,
         cantidad: 1,
-        subtotal: producto.precio,
+        subtotal: producto.precio*1,
       }
       setCarrito([...carrito, nuevoItem])
       toast.success(`${producto.nombre} agregado al carrito`)
@@ -212,9 +212,15 @@ export default function VentasPage() {
     setCarrito(carrito.filter((item) => item.producto.id !== productoId))
   }
 
-  const calcularTotal = () => {
-    return carrito.reduce((total, item) => total + item.subtotal, 0)
-  }
+const calcularTotal = () => {
+  return carrito.reduce((total, item) => {
+    const subtotalLimpio = typeof item.subtotal === "string"
+      ? Number(item.subtotal.replace(/\./g, "").replace(",", "."))
+      : item.subtotal
+    return total + subtotalLimpio
+  }, 0)
+}
+
 
   const procesarVenta = async () => {
     if (carrito.length === 0) {
